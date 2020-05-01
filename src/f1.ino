@@ -64,37 +64,12 @@ const int pinLights[numLights] = {2, 13, 4, 5, 6};
 const int pinP1Sensor = A1;
 const int pinP2Sensor = A2;
 
-
+// constants
+const unsigned long sensorInterval = 5000; // time between sensor reads
+const unsigned long buttonInterval = 5000; // time between button presses
 const int noteDurationShort = 500;
 const int noteDurationLong = 1500;
 const int noteDelay = 1000;
-char p1Name[4] = "HAM";
-unsigned long p1PrevLap = 0;
-unsigned long p1CurLap = 0;
-unsigned long p1BestLap = 9999999;
-int p1Laps = 0;
-char p2Name[4] = "VET";
-unsigned long p2PrevLap = 0;
-unsigned long p2CurLap = 0;
-unsigned long p2BestLap = 9999999;
-int p2Laps = 0;
-const char playersPad[11] =     "          ";
-const char player1Fastest[11] = " <-       ";
-const char player2Fastest[11] = "       -> ";
-bool raceActive = false;
-
-// screens
-const int startScreen = 0;
-const int countdownScreen = 1;
-const int countdownGoScreen = 2;
-const int raceScreen = 3;
-const int finishScreen = 4;
-const int quitRaceScreen = 5;
-int activeScreen = -1;
-int nextScreen = 0;
-
-// reed switch
-
 const int blockPos[5] = {1, 4, 7, 10, 13};
 const byte fullBlock[] = {
   B11111,
@@ -106,6 +81,36 @@ const byte fullBlock[] = {
   B11111,
   B11111
 };
+
+// screens
+const int startScreen = 0;
+const int countdownScreen = 1;
+const int countdownGoScreen = 2;
+const int raceScreen = 3;
+const int finishScreen = 4;
+const int quitRaceScreen = 5;
+
+// global variables
+char p1Name[4] = "HAM";
+unsigned long p1PrevLap = 0;
+unsigned long p1CurLap = 0;
+unsigned long p1BestLap = 9999999;
+unsigned long p1PreviousSensorMillis = 0;
+int p1Laps = 0;
+char p2Name[4] = "VET";
+unsigned long p2PrevLap = 0;
+unsigned long p2CurLap = 0;
+unsigned long p2BestLap = 9999999;
+unsigned long p2PreviousSensorMillis = 0;
+int p2Laps = 0;
+const char playersPad[11] =     "          ";
+const char player1Fastest[11] = " <-       ";
+const char player2Fastest[11] = "       -> ";
+bool raceActive = false;
+int activeScreen = -1;
+int nextScreen = 0;
+unsigned long currentMillis = 0;
+unsigned long previousButtonMillis = 0;
 
 LiquidCrystal lcd(pinLCD_RS, pinLCD_E, pinLCD_D4, pinLCD_D5, pinLCD_D6, pinLCD_D7);
 
@@ -124,6 +129,7 @@ void setup() {
 }
 
 void loop() {
+  currentMillis = millis();
   checkButtons();
   checkSensors();
   updateLapTimer();
@@ -219,13 +225,15 @@ void checkButtons() {
 }
 
 int checkButton(int pin, int lastState) {
-  int state = digitalRead(pin);
-  if (state != lastState) {
-    if (state == HIGH) {
-      handleButtonPress(pin);
+  if (millis() - previousButtonMillis >= buttonInterval) {
+    int state = digitalRead(pin);
+    if (state != lastState) {
+      Serial.println("BUTTON PRESS");
+      if (state == HIGH) {
+        handleButtonPress(pin);
+      }
+      return state;
     }
-    delay(50);
-    return state;
   }
   return lastState;
 }
@@ -315,7 +323,7 @@ void lightsOut() {
 }
 
 void startRace() {
-  p1PrevLap = p1CurLap = p2PrevLap = p2CurLap = millis();
+  p1PrevLap = p1CurLap = p2PrevLap = p2CurLap = currentMillis;
   raceActive = true;
 }
 
@@ -329,9 +337,9 @@ void drawDisplay() {
       break;
     case countdownScreen:
       lcd.setCursor(0, 0);
-      lcd.write("   5 SEC UNTIL ");
+      lcd.write("  15 SECS UNTIL ");
       lcd.setCursor(0, 1);
-      lcd.write("   LIGHTS OUT  ");
+      lcd.write("   LIGHTS OUT   ");
       break;
     case countdownGoScreen:
       lcd.setCursor(0, 0);
@@ -341,7 +349,7 @@ void drawDisplay() {
       break;
     case quitRaceScreen:
       lcd.setCursor(0, 0);
-      lcd.print("      QUIT?     ");
+      lcd.print("     QUIT?      ");
       lcd.setCursor(0, 1);
       lcd.print("  YES       NO  ");
       break;
@@ -353,11 +361,32 @@ void drawDisplay() {
       char line1[17];
       strcpy(line1, p1Name);
       if (p1BestLap == p2BestLap) {
-        strcat(line1, playersPad);
-      } else if (p1BestLap < p2BestLap) {
-        strcat(line1, player1Fastest);
+        strcat(line1, "*");
       } else {
-        strcat(line1, player2Fastest);
+        strcat(line1, " ");
+      }
+      strcat(line1, " ");
+      if (p1Laps < 10) {
+        strcat(line1, "0");
+        strcat(line1, p1Laps);
+      } else {
+        strcat(line1, p1Laps);
+      }
+      strcat(line1, " ");
+      // Serial.print(p1Laps);
+      // Serial.print(" - ");
+      // Serial.print(p2Laps);
+      // Serial.println();
+      if (p2Laps < 10) {
+        strcat(line1, "0");
+        strcat(line1, p2Laps);
+      } else {
+        strcat(line1, p2Laps);
+      }
+      if (p1BestLap > p2BestLap) {
+        strcat(line1, "*");
+      } else {
+        strcat(line1, " ");
       }
       strcat(line1, p2Name);
       char line2[17];
@@ -369,6 +398,8 @@ void drawDisplay() {
       lcd.setCursor(0, 1);
       lcd.write(line2);
       break;
+    default:
+      ;
   }
 }
 
@@ -377,34 +408,37 @@ void setScreen(int screen) {
   if (nextScreen < 0) {
     nextScreen = 0;
   }
-  Serial.print("setScreen(");
-  Serial.print(screen);
-  Serial.print(")");
-  Serial.println();
 }
 
 // Check the reed sensor
 // https://en.wikipedia.org/wiki/Reed_switch
 // For now (no reed sensors yet) we stubbed with a push button
 void checkSensors() {
-  checkSensor(pinP1Sensor, p1CurLap, p1PrevLap, p1BestLap, p1Laps);
-  checkSensor(pinP2Sensor, p2CurLap, p2PrevLap, p2BestLap, p2Laps);
+  checkSensor(pinP1Sensor, p1PreviousSensorMillis, p1CurLap, p1PrevLap, p1BestLap, p1Laps);
+  checkSensor(pinP2Sensor, p2PreviousSensorMillis, p2CurLap, p2PrevLap, p2BestLap, p2Laps);
 }
 
-void checkSensor(int pin, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap, int &laps) {
+void checkSensor(int pin, unsigned long &previousSensorMillis, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap, int &laps) {
   // unsigned long val = analogRead(pin);
-  int val = digitalRead(pin);
-  if (val == HIGH) {
-    if (curLap < bestLap && curLap > 1000) {
-      bestLap = curLap;
+  if (millis() - previousSensorMillis >= sensorInterval) {
+
+    if (digitalRead(pin) == HIGH) {
+      Serial.print("SENSOR");
+      Serial.print(" - ");
+      Serial.print(previousSensorMillis);
+      Serial.println();
+      previousSensorMillis = previousSensorMillis + sensorInterval;
+      if (curLap < bestLap && curLap > 1000) {
+        bestLap = curLap;
+      }
+      prevLap = currentMillis;
+      laps = laps + 1;
     }
-    prevLap = millis();
   }
-  laps++;
 }
 
 void updateLapTimer() {
-  unsigned long timestamp = millis();
+  unsigned long timestamp = currentMillis;
   p1CurLap = timestamp - p1PrevLap;
   p2CurLap = timestamp - p2PrevLap;
 }
@@ -417,4 +451,3 @@ char * millisToString(unsigned long millis, char *out) {
   sprintf(out, "%0d:%02d:%02d", m, s, ms);
   return out;
 }
-
