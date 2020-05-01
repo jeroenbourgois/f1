@@ -31,6 +31,12 @@
 // - pushbutton attached to pin 2 from +5V
 // - 10K resistor attached to pin 2 from ground
 //
+// We have the following screens:
+//
+// START -> [Y] -> COUNTDOWN -> RACE --> [Y] -> QUIT? -> [Y] -> START
+//                                   |                -> [N] -> RACE
+//                                   --> [N] -> n/a
+//
 // Created:  April 1st, 2020
 // Modified: April 25, 2020
 // By Jeroen Bourgois.
@@ -58,6 +64,7 @@ const int pinLights[numLights] = {2, 13, 4, 5, 6};
 const int pinP1Sensor = A1;
 const int pinP2Sensor = A2;
 
+
 const int noteDurationShort = 500;
 const int noteDurationLong = 1500;
 const int noteDelay = 1000;
@@ -65,13 +72,16 @@ char p1Name[4] = "HAM";
 unsigned long p1PrevLap = 0;
 unsigned long p1CurLap = 0;
 unsigned long p1BestLap = 9999999;
+int p1Laps = 0;
 char p2Name[4] = "VET";
 unsigned long p2PrevLap = 0;
 unsigned long p2CurLap = 0;
 unsigned long p2BestLap = 9999999;
+int p2Laps = 0;
 const char playersPad[11] =     "          ";
 const char player1Fastest[11] = " <-       ";
 const char player2Fastest[11] = "       -> ";
+bool raceActive = false;
 
 // screens
 const int startScreen = 0;
@@ -79,6 +89,7 @@ const int countdownScreen = 1;
 const int countdownGoScreen = 2;
 const int raceScreen = 3;
 const int finishScreen = 4;
+const int quitRaceScreen = 5;
 int activeScreen = -1;
 int nextScreen = 0;
 
@@ -105,6 +116,7 @@ int lastCancelBtnState = LOW;
 int randomStartDelay;
 
 void setup() {
+  setupDefaults();
   setupLCD();
   setupLights();
   setupButtons();
@@ -152,8 +164,7 @@ void writeFullBlock(int n) {
 }
 
 void playSequence() {
-  delay(10000);
-  delay(noteDelay);
+  delay(5000);
 
   lcd.clear();
 
@@ -203,20 +214,45 @@ void playSequence() {
 // Confirm button to start / ok / continue
 // Cancel button to cancel / back / stop
 void checkButtons() {
-  lastConfirmBtnState = checkButton(pinBtnConfirm, lastConfirmBtnState, 1);
-  lastCancelBtnState = checkButton(pinBtnCancel, lastCancelBtnState, -1);
+  lastConfirmBtnState = checkButton(pinBtnConfirm, lastConfirmBtnState);
+  lastCancelBtnState = checkButton(pinBtnCancel, lastCancelBtnState);
 }
 
-int checkButton(int pin, int lastState, int screenBump) {
+int checkButton(int pin, int lastState) {
   int state = digitalRead(pin);
   if (state != lastState) {
     if (state == HIGH) {
-      setScreen(activeScreen + screenBump);
+      handleButtonPress(pin);
     }
     delay(50);
     return state;
   }
   return lastState;
+}
+
+void handleButtonPress(int pin) {
+  if (pin == pinBtnConfirm) {
+    switch (activeScreen) {
+      case startScreen:
+        setScreen(countdownScreen);
+        break;
+      case raceScreen:
+        setScreen(quitRaceScreen);
+        break;
+      case quitRaceScreen:
+        resetGame();
+        setScreen(startScreen);
+        break;
+    }
+  }
+  if (pin == pinBtnCancel) {
+    switch (activeScreen) {
+      case quitRaceScreen:
+        setScreen(raceScreen);
+        break;
+    }
+  }
+
 }
 
 // This drives what happens in the
@@ -227,24 +263,40 @@ void updateGameState() {
   if (nextScreen == activeScreen) {
     return;
   }
-  Serial.print(" A: ");
-  Serial.print(activeScreen);
-  Serial.print(" | N: ");
-  Serial.print(nextScreen);
-  Serial.println();
   activeScreen = nextScreen;
   switch (nextScreen) {
+    case startScreen:
+      break;
     case countdownScreen:
       drawDisplay();
       startSequence();
       break;
     case raceScreen:
-      startRace();
+      if (raceActive == false) {
+        startRace();
+      }
     case countdownGoScreen:
       drawDisplay();
       break;
   }
+}
 
+void resetGame() {
+  setupDefaults();
+}
+
+void setupDefaults() {
+  raceActive = false;
+  p2PrevLap = 0;
+  p2CurLap = 0;
+  p2BestLap = 9999999;
+  p1PrevLap = 0;
+  p1CurLap = 0;
+  p1Laps = 0;
+  p2Laps = 0;
+  p1BestLap = 9999999;
+  activeScreen = -1;
+  nextScreen = 0;
 }
 
 void startSequence() {
@@ -263,11 +315,8 @@ void lightsOut() {
 }
 
 void startRace() {
-  unsigned long ms = millis();
-  p1PrevLap = ms;
-  p1CurLap = ms;
-  p2PrevLap = ms;
-  p2CurLap = ms;
+  p1PrevLap = p1CurLap = p2PrevLap = p2CurLap = millis();
+  raceActive = true;
 }
 
 void drawDisplay() {
@@ -280,15 +329,21 @@ void drawDisplay() {
       break;
     case countdownScreen:
       lcd.setCursor(0, 0);
-      lcd.write("   10 SEC UNTIL ");
+      lcd.write("   5 SEC UNTIL ");
       lcd.setCursor(0, 1);
-      lcd.write("    LIGHTS OUT  ");
+      lcd.write("   LIGHTS OUT  ");
       break;
     case countdownGoScreen:
       lcd.setCursor(0, 0);
       lcd.print(" It's lights out");
       lcd.setCursor(0, 1);
       lcd.print(" and away we go!");
+      break;
+    case quitRaceScreen:
+      lcd.setCursor(0, 0);
+      lcd.print("      QUIT?     ");
+      lcd.setCursor(0, 1);
+      lcd.print("  YES       NO  ");
       break;
     case raceScreen:
       char p1Time[9] = {0};
@@ -319,7 +374,7 @@ void drawDisplay() {
 
 void setScreen(int screen) {
   nextScreen = screen;
-  if(nextScreen < 0) {
+  if (nextScreen < 0) {
     nextScreen = 0;
   }
   Serial.print("setScreen(");
@@ -332,11 +387,11 @@ void setScreen(int screen) {
 // https://en.wikipedia.org/wiki/Reed_switch
 // For now (no reed sensors yet) we stubbed with a push button
 void checkSensors() {
-  checkSensor(pinP1Sensor, p1CurLap, p1PrevLap, p1BestLap);
-  checkSensor(pinP2Sensor, p2CurLap, p2PrevLap, p2BestLap);
+  checkSensor(pinP1Sensor, p1CurLap, p1PrevLap, p1BestLap, p1Laps);
+  checkSensor(pinP2Sensor, p2CurLap, p2PrevLap, p2BestLap, p2Laps);
 }
 
-void checkSensor(int pin, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap) {
+void checkSensor(int pin, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap, int &laps) {
   // unsigned long val = analogRead(pin);
   int val = digitalRead(pin);
   if (val == HIGH) {
@@ -345,6 +400,7 @@ void checkSensor(int pin, unsigned long &curLap, unsigned long &prevLap, unsigne
     }
     prevLap = millis();
   }
+  laps++;
 }
 
 void updateLapTimer() {
