@@ -27,6 +27,18 @@ char * millisToString(unsigned long millis, char *out) {
   return out;
 }
 
+int checkButton(int pin, int lastState, int screenBump) {
+  int state = digitalRead(pin);
+  if (state != lastState) {
+    if (state == HIGH) {
+      setScreen(activeScreen + screenBump);
+    }
+    delay(50);
+    return state;
+  }
+  return lastState;
+}
+
 int main () {
   int sensorPin = 1;
   unsigned long curLap = 1000;
