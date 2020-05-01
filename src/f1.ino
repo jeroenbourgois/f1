@@ -351,6 +351,7 @@ void drawDisplay() {
     case raceScreen:
       char p1Time[9] = {0};
       char p2Time[9] = {0};
+      char laps[3] = {0};
       millisToString(p1CurLap, p1Time);
       millisToString(p2CurLap, p2Time);
       char line1[17];
@@ -360,24 +361,10 @@ void drawDisplay() {
       } else {
         strcat(line1, " ");
       }
-      strcat(line1, " ");
-      if (p1Laps < 10) {
-        strcat(line1, "0");
-        strcat(line1, p1Laps);
-      } else {
-        strcat(line1, p1Laps);
-      }
-      strcat(line1, " ");
-      // Serial.print(p1Laps);
-      // Serial.print(" - ");
-      // Serial.print(p2Laps);
-      // Serial.println();
-      if (p2Laps < 10) {
-        strcat(line1, "0");
-        strcat(line1, p2Laps);
-      } else {
-        strcat(line1, p2Laps);
-      }
+      sprintf(laps, " %02d ", p1Laps);
+      strcat(line1, laps);
+      sprintf(laps, " %02d ", p2Laps);
+      strcat(line1, laps);
       if (p1BestLap > p2BestLap) {
         strcat(line1, "*");
       } else {
