@@ -65,8 +65,8 @@ const int pinP1Sensor = A1;
 const int pinP2Sensor = A2;
 
 // constants
-const unsigned long sensorInterval = 5000; // time between sensor reads
-const unsigned long buttonInterval = 5000; // time between button presses
+const unsigned long sensorInterval = 1000; // time between sensor reads
+const unsigned long buttonInterval = 500; // time between button presses
 const int noteDurationShort = 500;
 const int noteDurationLong = 1500;
 const int noteDelay = 1000;
@@ -220,22 +220,17 @@ void playSequence() {
 // Confirm button to start / ok / continue
 // Cancel button to cancel / back / stop
 void checkButtons() {
-  lastConfirmBtnState = checkButton(pinBtnConfirm, lastConfirmBtnState);
-  lastCancelBtnState = checkButton(pinBtnCancel, lastCancelBtnState);
+  checkButton(pinBtnConfirm);
+  checkButton(pinBtnCancel);
 }
 
-int checkButton(int pin, int lastState) {
-  if (millis() - previousButtonMillis >= buttonInterval) {
-    int state = digitalRead(pin);
-    if (state != lastState) {
-      Serial.println("BUTTON PRESS");
-      if (state == HIGH) {
-        handleButtonPress(pin);
-      }
-      return state;
+void checkButton(int pin) {
+  if (currentMillis - previousButtonMillis >= buttonInterval) {
+    if (digitalRead(pin) == HIGH) {
+      previousButtonMillis = currentMillis;
+      handleButtonPress(pin);
     }
   }
-  return lastState;
 }
 
 void handleButtonPress(int pin) {
@@ -420,14 +415,9 @@ void checkSensors() {
 
 void checkSensor(int pin, unsigned long &previousSensorMillis, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap, int &laps) {
   // unsigned long val = analogRead(pin);
-  if (millis() - previousSensorMillis >= sensorInterval) {
-
+  if (currentMillis - previousSensorMillis >= sensorInterval) {
     if (digitalRead(pin) == HIGH) {
-      Serial.print("SENSOR");
-      Serial.print(" - ");
-      Serial.print(previousSensorMillis);
-      Serial.println();
-      previousSensorMillis = previousSensorMillis + sensorInterval;
+      previousSensorMillis = currentMillis;
       if (curLap < bestLap && curLap > 1000) {
         bestLap = curLap;
       }
@@ -442,7 +432,6 @@ void updateLapTimer() {
   p1CurLap = timestamp - p1PrevLap;
   p2CurLap = timestamp - p2PrevLap;
 }
-
 
 char * millisToString(unsigned long millis, char *out) {
   int s = (millis / 1000) % 60;
