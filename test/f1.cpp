@@ -19,18 +19,6 @@ void checkSensor(int sensorPin, unsigned long &curLap, unsigned long &bestLap, u
   }
 }
 
-
-char* _mls = new char[12];
-
-/* char * millisToString(unsigned long millis) { */
-/*   char* str = new char[12]; */
-/*   int s = (millis / 1000) % 60; */
-/*   int m = (millis / 1000) / 60; */
-/*   int ms = (millis % 1000) / 10; */
-/*   sprintf(str, "%0d:%02d:%02d", m, s, ms); */
-/*   return str; */
-/* } */
-
 char * millisToString(unsigned long millis, char *out) {
   int s = (millis / 1000) % 60;
   int m = (millis / 1000) / 60;
