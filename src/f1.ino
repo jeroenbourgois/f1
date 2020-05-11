@@ -21,51 +21,56 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
-// Circuit:
-// - 8 ohm speaker on digital pin 8
-// - two photo meters
-// - 5 LEDs
-// - 10k resistor for phototransistor
-// The circuit:
-// - LED attached from pin 13 to ground
-// - pushbutton attached to pin 2 from +5V
-// - 10K resistor attached to pin 2 from ground
+// All code is available on [Github](https://github.com/jeroenbourgois/f1)
 //
-// We have the following screens:
+// Circuit:
+// - 8 ohm speaker on digital pin 2
+// - 5 LEDs connected to digital pins 9 -> 13,
+//   each LED grounded with a 220Ω resistor
+// - 'OK' pushbutton on analog pin A3 (used as digital pin) and +5V
+// - 'CANCEL' pushbutton on analog pin A4 (used as digital pin) and +5V
+// - two reed switches to measure passing cars, analog pins A1 and A2 and +5v
+// - LCD:
+//    - data pins D4 -> D7 wired to digital pins 7 -> 4
+//    - E pin wired to digital pin 8
+//    - RS pin wired to digital pin 3
+//    - VCC+ and
+//    - a potentionmeter with it's middle leg connected to the LCD 4
+//
+// A detailed Fritzing sketch is available in the repository.
+//
+// On the LCD we have the following screens:
 //
 // START -> [Y] -> COUNTDOWN -> RACE --> [Y] -> QUIT? -> [Y] -> START
 //                                   |                -> [N] -> RACE
 //                                   --> [N] -> n/a
 //
-// Created:  April 1st, 2020
-// Modified: April 25, 2020
+// Created:       Apr 1, 2020
+// Last Modified: May 11, 2020
 // By Jeroen Bourgois.
 //
 // This code is in the public domain.
-//
-// TODO:
-// - use F() macro when printing
 
 #include "pitches.h"
 #include <LiquidCrystal.h>
 
 // Board pins
-const int pinBuzzer = 12;
+const int pinBuzzer = 2;
 const int pinBtnConfirm = A3;
 const int pinBtnCancel = A4;
 const int pinLCD_RS = 3;
 const int pinLCD_E = 8;
 const int pinLCD_D4 = 7;
-const int pinLCD_D5 = 9;
-const int pinLCD_D6 = 10;
-const int pinLCD_D7 = 11;
+const int pinLCD_D5 = 6;
+const int pinLCD_D6 = 5;
+const int pinLCD_D7 = 4;
 const int numLights = 5;
-const int pinLights[numLights] = {2, 13, 4, 5, 6};
+const int pinLights[numLights] = {13, 9, 10, 11, 12};
 const int pinP1Sensor = A1;
 const int pinP2Sensor = A2;
 
 // constants
-const unsigned long sensorInterval = 1000; // time between sensor reads
+const unsigned long sensorInterval = 500; // time between sensor reads
 const unsigned long buttonInterval = 500; // time between button presses
 const int noteDurationShort = 500;
 const int noteDurationLong = 1500;
@@ -125,13 +130,14 @@ void setup() {
   setupLCD();
   setupLights();
   setupButtons();
+  setupReeds();
   Serial.begin(9600);
 }
 
 void loop() {
   currentMillis = millis();
   checkButtons();
-  checkSensors();
+  checkReeds();
   updateLapTimer();
   updateGameState();
   drawDisplay();
@@ -152,6 +158,9 @@ void setupLCD() {
 void setupButtons() {
   pinMode(pinBtnConfirm, INPUT);
   pinMode(pinBtnCancel, INPUT);
+}
+
+void setupReeds() {
   pinMode(pinP1Sensor, INPUT);
   pinMode(pinP2Sensor, INPUT);
 }
@@ -395,15 +404,19 @@ void setScreen(int screen) {
 // Check the reed sensor
 // https://en.wikipedia.org/wiki/Reed_switch
 // For now (no reed sensors yet) we stubbed with a push button
-void checkSensors() {
-  checkSensor(pinP1Sensor, p1PreviousSensorMillis, p1CurLap, p1PrevLap, p1BestLap, p1Laps);
+void checkReeds() {
+  //checkSensor(pinP1Sensor, p1PreviousSensorMillis, p1CurLap, p1PrevLap, p1BestLap, p1Laps);
   checkSensor(pinP2Sensor, p2PreviousSensorMillis, p2CurLap, p2PrevLap, p2BestLap, p2Laps);
 }
 
 void checkSensor(int pin, unsigned long &previousSensorMillis, unsigned long &curLap, unsigned long &prevLap, unsigned long &bestLap, int &laps) {
   // unsigned long val = analogRead(pin);
   if (currentMillis - previousSensorMillis >= sensorInterval) {
-    if (digitalRead(pin) == HIGH) {
+    int s = digitalRead(pin);
+    Serial.print("Reed: ");
+    Serial.print(s);
+    Serial.println("");
+    if (s == LOW) {
       previousSensorMillis = currentMillis;
       if (curLap < bestLap && curLap > 1000) {
         bestLap = curLap;
