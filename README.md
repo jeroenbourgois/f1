@@ -2,11 +2,8 @@
 
 Produces a full F1 startgrid sequence.
 
-Developed for pure and utter fun. See [LICENSE](LICENSE).
-
-All code is available on [Github](https://github.com/jeroenbourgois/f1)
-
 Circuit:
+
 - 8 ohm speaker on digital pin 2
 - 5 LEDs connected to digital pins 9 -> 13,
   each LED grounded with a 220Ω resistor
@@ -24,12 +21,13 @@ A detailed Fritzing sketch is available in the repository.
 
 On the LCD we have the following screens:
 
+```
 START -> [Y] -> COUNTDOWN -> RACE --> [Y] -> QUIT? -> [Y] -> START
                                   |                -> [N] -> RACE
                                   --> [N] -> n/a
+```
 
-Created:       Apr 1, 2020
-Last Modified: May 11, 2020
-By Jeroen Bourgois.
+## License
 
-This code is in the public domain.
+Developed for pure and utter fun. All code is available on [Github](https://github.com/jeroenbourgois/f1)
+This code is in the public domain. See [LICENSE](LICENSE).
